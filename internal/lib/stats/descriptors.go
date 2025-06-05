@@ -149,3 +149,77 @@ var (
 		LabelKeys: baseLabelKeys,
 	}
 )
+
+// DiskIo metrics
+var (
+	containerBlkIoDeviceUsageTotal = &types.MetricDescriptor{
+		Name:      "container_blkio_device_usage_total",
+		Help:      "Blkio device bytes usage |",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsIoCurrent = &types.MetricDescriptor{
+		Name:      "container_fs_io_current",
+		Help:      "| Number of I/Os currently in progress",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsIoTimeSecondsTotal = &types.MetricDescriptor{
+		Name:      "container_fs_io_time_seconds_total",
+		Help:      "Cumulative count of seconds spent doing I/Os |",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsIoTimeWeightedSecondsTotal = &types.MetricDescriptor{
+		Name:      "container_fs_io_time_weighted_seconds_total",
+		Help:      "Cumulative weighted I/O time |",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsReadsBytesTotal = &types.MetricDescriptor{
+		Name:      "container_fs_reads_bytes_total",
+		Help:      "Cumulative count of bytes read |",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsReadSecondsTotal = &types.MetricDescriptor{
+		Name:      "container_fs_read_seconds_total",
+		Help:      "Cumulative count of seconds spent reading",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsReadsMergedTotal = &types.MetricDescriptor{
+		Name:      "container_fs_reads_merged_total",
+		Help:      "Cumulative count of reads merged",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsReadsTotal = &types.MetricDescriptor{
+		Name:      "container_fs_reads_total",
+		Help:      "Cumulative count of reads completed",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsSectorReadsTotal = &types.MetricDescriptor{
+		Name:      "container_fs_sector_reads_total",
+		Help:      "Cumulative count of sector reads completed",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsSectorWritesTotal = &types.MetricDescriptor{
+		Name:      "container_fs_sector_writes_total",
+		Help:      "Cumulative count of sector writes completed",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsWritesBytesTotal = &types.MetricDescriptor{
+		Name:      "container_fs_writes_bytes_total",
+		Help:      "Cumulative count of bytes written |",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsWriteSecondsTotal = &types.MetricDescriptor{
+		Name:      "container_fs_write_seconds_total",
+		Help:      "Cumulative count of seconds spent writing |",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsWritesMergedTotal = &types.MetricDescriptor{
+		Name:      "container_fs_writes_merged_total",
+		Help:      "Cumulative count of writes merged",
+		LabelKeys: baseLabelKeys,
+	}
+	containerFsWritesTotal = &types.MetricDescriptor{
+		Name:      "container_fs_writes_total",
+		Help:      "Cumulative count of writes completed",
+		LabelKeys: baseLabelKeys,
+	}
+)
