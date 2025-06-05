@@ -94,10 +94,10 @@ type PSIData struct {
 }
 
 type PerDiskStats struct {
-	Device string            `json:"device"`
-	Major  uint64            `json:"major"`
-	Minor  uint64            `json:"minor"`
-	Stats  map[string]uint64 `json:"stats"`
+	Device string
+	Major  uint64
+	Minor  uint64
+	Stats  map[string]uint64
 }
 
 type diskKey struct {
