@@ -244,6 +244,10 @@ func (ss *StatsServer) containerMetricsFromCgStats(sb *sandbox.Sandbox, c *oci.C
 			if memoryMetrics := generateSandboxMemoryMetrics(sb, cgstats.Memory); memoryMetrics != nil {
 				metrics = append(metrics, memoryMetrics...)
 			}
+		case DiskIoMetrics:
+			if diskMetrics := generateSandboxDiskIoMetrics(sb, cgstats.DiskIo); diskMetrics != nil {
+				metrics = append(metrics, diskMetrics...)
+			}
 		case OOMMetrics:
 			cm, err := ss.Config().CgroupManager().ContainerCgroupManager(sb.CgroupParent(), c.ID())
 			if err != nil {

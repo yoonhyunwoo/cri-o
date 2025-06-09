@@ -1,6 +1,7 @@
 package cgmgr
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
 	"syscall"
@@ -20,6 +21,7 @@ import (
 type CgroupStats struct {
 	Memory     *MemoryStats
 	CPU        *CPUStats
+	DiskIo     *DiskIoStats
 	Pid        *PidsStats
 	SystemNano int64
 }
@@ -57,6 +59,62 @@ type CPUStats struct {
 	ThrottledPeriods uint64
 	// Aggregate time the container was throttled for in nanoseconds.
 	ThrottledTime uint64
+}
+
+// DiskIoStats represents disk I/O statistics for a cgroup.
+type DiskIoStats struct {
+	// IoServiceBytes tracks the number of bytes transferred to/from the disk.
+	IoServiceBytes []PerDiskStats
+	// IoServiced tracks the number of I/O operations completed.
+	IoServiced []PerDiskStats
+	// IoQueued tracks the number of I/O operations currently queued.
+	IoQueued []PerDiskStats
+	// Sectors tracks the number of sectors transferred.
+	Sectors []PerDiskStats
+	// IoServiceTime tracks the time spent servicing I/O operations in nanoseconds.
+	IoServiceTime []PerDiskStats
+	// IoWaitTime tracks the time spent waiting for I/O operations in nanoseconds.
+	IoWaitTime []PerDiskStats
+	// IoMerged tracks the number of merged I/O operations.
+	IoMerged []PerDiskStats
+	// IoTime tracks the total time spent on I/O operations in nanoseconds.
+	IoTime []PerDiskStats
+	// PSI contains pressure stall information for the cgroup.
+	PSI PSIStats
+}
+
+// PSIStats represents pressure stall information for a cgroup.
+type PSIStats struct {
+	// Full contains PSI data for all tasks in the cgroup.
+	Full PSIData
+	// Some contains PSI data for some tasks in the cgroup.
+	Some PSIData
+}
+
+// PSIData represents pressure stall information for a specific time window.
+type PSIData struct {
+	// Total is the total time (in nanoseconds) tasks have waited due to resource pressure.
+	Total uint64
+	// Avg10 is the average percentage of time tasks have waited over a 10-second window.
+	Avg10 float64
+	// Avg60 is the average percentage of time tasks have waited over a 60-second window.
+	Avg60 float64
+	// Avg300 is the average percentage of time tasks have waited over a 300-second window.
+	Avg300 float64
+}
+
+// PerDiskStats represents I/O statistics for a specific disk device.
+type PerDiskStats struct {
+	Device string
+	Major  uint64
+	Minor  uint64
+	Stats  map[string]uint64
+}
+
+// diskKey is used as a map key to uniquely identify a disk device.
+type diskKey struct {
+	Major uint64
+	Minor uint64
 }
 
 type PidsStats struct {
@@ -118,6 +176,7 @@ func libctrStatsToCgroupStats(stats *libctrcgroups.Stats) *CgroupStats {
 	return &CgroupStats{
 		Memory: cgroupMemStats(&stats.MemoryStats),
 		CPU:    cgroupCPUStats(&stats.CpuStats),
+		DiskIo: cgroupDiskIoStats(&stats.BlkioStats),
 		Pid: &PidsStats{
 			Current: stats.PidsStats.Current,
 			Limit:   stats.PidsStats.Limit,
@@ -210,6 +269,78 @@ func cgroupCPUStats(cpuStats *libctrcgroups.CpuStats) *CPUStats {
 		ThrottlingActivePeriods: cpuStats.ThrottlingData.Periods,
 		ThrottledPeriods:        cpuStats.ThrottlingData.ThrottledPeriods,
 		ThrottledTime:           cpuStats.ThrottlingData.ThrottledTime,
+	}
+}
+
+func cgroupDiskIoStats(blkIoStats *libctrcgroups.BlkioStats) *DiskIoStats {
+	return &DiskIoStats{
+		IoServiceBytes: convertBlkIoEntryToPerDisk(blkIoStats.IoServiceBytesRecursive),
+		IoServiced:     convertBlkIoEntryToPerDisk(blkIoStats.IoServicedRecursive),
+		IoQueued:       convertBlkIoEntryToPerDisk(blkIoStats.IoQueuedRecursive),
+		Sectors:        convertBlkIoEntryToPerDisk(blkIoStats.SectorsRecursive),
+		IoServiceTime:  convertBlkIoEntryToPerDisk(blkIoStats.IoServiceTimeRecursive),
+		IoWaitTime:     convertBlkIoEntryToPerDisk(blkIoStats.IoWaitTimeRecursive),
+		IoMerged:       convertBlkIoEntryToPerDisk(blkIoStats.IoMergedRecursive),
+		IoTime:         convertBlkIoEntryToPerDisk(blkIoStats.IoTimeRecursive),
+		PSI:            convertPSIStatsFromExternal(blkIoStats.PSI),
+	}
+}
+
+func convertBlkIoEntryToPerDisk(entries []libctrcgroups.BlkioStatEntry) []PerDiskStats {
+	if len(entries) == 0 {
+		return nil
+	}
+	diskMap := make(map[diskKey]*PerDiskStats)
+	for _, entry := range entries {
+		key := diskKey{
+			Major: entry.Major,
+			Minor: entry.Minor,
+		}
+		perDisk, exists := diskMap[key]
+		if !exists {
+			perDisk = &PerDiskStats{
+				Major:  entry.Major,
+				Minor:  entry.Minor,
+				Device: fmt.Sprintf("%d:%d", entry.Major, entry.Minor),
+				Stats:  make(map[string]uint64),
+			}
+			diskMap[key] = perDisk
+		}
+
+		// If the operation type is empty, use "Count" as a default metric name
+		op := entry.Op
+		if op == "" {
+			op = "Count"
+		}
+		perDisk.Stats[op] = entry.Value
+	}
+
+	// Convert map to slice with pre-allocated capacity
+	result := make([]PerDiskStats, 0, len(diskMap))
+	for _, v := range diskMap {
+		result = append(result, *v)
+	}
+	return result
+}
+
+func convertPSIStatsFromExternal(s *libctrcgroups.PSIStats) PSIStats {
+	if s == nil {
+		return PSIStats{}
+	}
+
+	return PSIStats{
+		Full: PSIData{
+			Total:  s.Full.Total,
+			Avg10:  s.Full.Avg10,
+			Avg60:  s.Full.Avg60,
+			Avg300: s.Full.Avg300,
+		},
+		Some: PSIData{
+			Total:  s.Some.Total,
+			Avg10:  s.Some.Avg10,
+			Avg60:  s.Some.Avg60,
+			Avg300: s.Some.Avg300,
+		},
 	}
 }
 
